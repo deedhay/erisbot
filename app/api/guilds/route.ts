@@ -18,27 +18,38 @@ export async function GET() {
     });
 
     if (!response.ok) {
-      throw new Error("Failed to fetch guilds");
+      const errorData = await response.text();
+      console.error("Discord API error:", response.status, errorData);
+      return NextResponse.json({ 
+        error: "Need to re-login to access servers", 
+        reason: "Missing guilds permission" 
+      }, { status: 403 });
     }
 
     const userGuilds = await response.json();
     
-    // Fetch bot's guilds from the stats endpoint
-    const statsResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:5000'}/api/stats`);
+    // Try to fetch bot's guilds from the stats endpoint
     let botGuildIds: string[] = [];
-    
-    if (statsResponse.ok) {
-      const stats = await statsResponse.json();
-      botGuildIds = stats.guild_ids || [];
+    try {
+      const statsUrl = process.env.NEXTAUTH_URL ? `${process.env.NEXTAUTH_URL}/api/stats` : "http://localhost:5000/api/stats";
+      const statsResponse = await fetch(statsUrl);
+      
+      if (statsResponse.ok) {
+        const stats = await statsResponse.json();
+        botGuildIds = stats.guild_ids || [];
+      }
+    } catch (statsError) {
+      console.warn("Could not fetch bot stats:", statsError);
     }
     
-    // Filter to only show mutual servers (where both user and bot are present)
-    const mutualGuilds = userGuilds.filter((guild: any) => 
-      botGuildIds.includes(guild.id)
-    );
+    // If we have bot guild IDs, filter for mutual servers; otherwise return all user servers
+    const mutualGuilds = botGuildIds.length > 0 
+      ? userGuilds.filter((guild: any) => botGuildIds.includes(guild.id))
+      : userGuilds;
     
     return NextResponse.json(mutualGuilds);
   } catch (error) {
+    console.error("Guilds endpoint error:", error);
     return NextResponse.json({ error: "Failed to fetch guilds" }, { status: 500 });
   }
 }
