@@ -107,15 +107,15 @@ export default function Navigation({ isDark, setIsDark }: NavigationProps) {
                         {(session.user as any)?.email || ""}
                       </p>
                     </div>
-                    <button
-                      onClick={() => {
-                        signOut({ redirect: true, callbackUrl: "/" })
-                        setShowDropdown(false)
-                      }}
-                      className={`w-full text-left px-4 py-2 text-sm ${isDark ? "text-white hover:bg-white/5" : "text-black hover:bg-black/5"} transition-all duration-200`}
-                    >
-                      Logout
-                    </button>
+                    <form action="/api/auth/signout" method="POST" className="w-full">
+                      <button
+                        type="submit"
+                        onClick={() => setShowDropdown(false)}
+                        className={`w-full text-left px-4 py-2 text-sm ${isDark ? "text-white hover:bg-white/5" : "text-black hover:bg-black/5"} transition-all duration-200`}
+                      >
+                        Logout
+                      </button>
+                    </form>
                   </div>
                 )}
               </div>
