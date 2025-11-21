@@ -109,7 +109,7 @@ export default function Navigation({ isDark, setIsDark }: NavigationProps) {
                     </div>
                     <button
                       onClick={() => {
-                        signOut()
+                        signOut({ redirect: true, callbackUrl: "/" })
                         setShowDropdown(false)
                       }}
                       className={`w-full text-left px-4 py-2 text-sm ${isDark ? "text-white hover:bg-white/5" : "text-black hover:bg-black/5"} transition-all duration-200`}
