@@ -11,38 +11,59 @@ export async function GET() {
 
   try {
     // Fetch user's guilds
-    const response = await fetch("https://discord.com/api/users/@me/guilds", {
+    const userResponse = await fetch("https://discord.com/api/users/@me/guilds", {
       headers: {
         Authorization: `Bearer ${session.accessToken}`,
       },
     });
 
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error("Discord API error:", response.status, errorData);
+    if (!userResponse.ok) {
+      const errorData = await userResponse.text();
+      console.error("Discord API error:", userResponse.status, errorData);
       return NextResponse.json({ 
         error: "Need to re-login to access servers", 
         reason: "Missing guilds permission" 
       }, { status: 403 });
     }
 
-    const userGuilds = await response.json();
+    const userGuilds = await userResponse.json();
     
-    // Try to fetch bot's guilds from the stats endpoint
+    // Try to fetch bot's guilds - first from stats endpoint, then from Discord API
     let botGuildIds: string[] = [];
+    
+    // First try: stats endpoint (if bot is online)
     try {
       const statsUrl = process.env.NEXTAUTH_URL ? `${process.env.NEXTAUTH_URL}/api/stats` : "http://localhost:5000/api/stats";
-      const statsResponse = await fetch(statsUrl);
+      const statsResponse = await fetch(statsUrl, { signal: AbortSignal.timeout(5000) });
       
       if (statsResponse.ok) {
         const stats = await statsResponse.json();
         botGuildIds = stats.guild_ids || [];
       }
     } catch (statsError) {
-      console.warn("Could not fetch bot stats:", statsError);
+      console.warn("Bot stats endpoint unavailable, trying Discord API...");
+      
+      // Fallback: Query Discord API directly for bot's guilds using bot token
+      if (process.env.DISCORD_BOT_TOKEN) {
+        try {
+          const botGuildsResponse = await fetch("https://discord.com/api/users/@me/guilds", {
+            headers: {
+              Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+            },
+          });
+          
+          if (botGuildsResponse.ok) {
+            const botGuilds = await botGuildsResponse.json();
+            botGuildIds = botGuilds.map((guild: any) => guild.id);
+            console.log("Got bot guilds from Discord API:", botGuildIds.length);
+          }
+        } catch (discordError) {
+          console.warn("Could not fetch bot guilds from Discord API:", discordError);
+        }
+      }
     }
     
-    // If we have bot guild IDs, filter for mutual servers; otherwise return all user servers
+    // Filter for mutual servers (where both user and bot are members)
     const mutualGuilds = botGuildIds.length > 0 
       ? userGuilds.filter((guild: any) => botGuildIds.includes(guild.id))
       : userGuilds;
