@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 export async function GET() {
-  const session = await getServerSession() as any;
+  const session = await getServerSession(authOptions) as any;
   
   if (!session?.accessToken) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
